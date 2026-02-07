@@ -11,56 +11,78 @@ clauseOrder = {
 def extractClauses(tokens):
     clauses = []
     i = 0
+    depth = 0
 
     while i < len(tokens):
+        tok = tokens[i]
 
-        if tokens[i] == 'group' and i+1 < len(tokens) and tokens[i+1] == 'by':
+        if tok == "(":
+            depth += 1
+            i += 1
+            continue
+        elif tok == ")":
+            depth -= 1
+            i += 1
+            continue
+
+        if depth != 0:
+            i += 1
+            continue
+
+        if tok == "group" and i + 1 < len(tokens) and tokens[i + 1] == "by":
             clauses.append(("group by", i))
             i += 2
-        elif tokens[i] == 'order' and i + 1 < len(tokens) and tokens[i+1] == 'by':
+            continue
+
+        if tok == "order" and i + 1 < len(tokens) and tokens[i + 1] == "by":
             clauses.append(("order by", i))
             i += 2
-        elif tokens[i] in clauseOrder:
-            clauses.append((tokens[i], i))
+            continue
+
+        if tok in clauseOrder:
+            clauses.append((tok, i))
             i += 1
-        else:
-            i += 1
+            continue
+
+        i += 1
 
     return clauses
 
-def checkOrder(clauses):
 
+def checkOrder(clauses):
     last = 0
     for name, pos in clauses:
         current = clauseOrder[name]
         if current < last:
             return {
                 "error": "Clause Order Error",
-                "where": name,
-                "why": f"{name} appears in the wrong order.",
+                "clause": name,
+                "position": pos,
+                "why": f"'{name}' appears in the wrong order"
             }
         last = current
     return None
 
 
+
 def checkMandatoryClauses(clauses):
-    mandatory = {'select', 'from'}
+    mandatory = {"select", "from"}
     found = {name for name, _ in clauses}
 
     missing = mandatory - found
     if missing:
         return {
             "error": "Missing Mandatory Clause",
-            "missing": list(missing),
-            "why": f"Query must contain {', '.join(sorted(missing))} clause(s)."
+            "missing": sorted(missing)
         }
 
     if "having" in found and "group by" not in found:
         return {
-            "error": "Having without group by",
+            "error": "HAVING without GROUP BY"
         }
 
     return None
+
 
 def checkDuplicateClauses(clauses):
     seen = {}
@@ -76,6 +98,6 @@ def checkDuplicateClauses(clauses):
             }
         seen[name] = pos
     
-    print(seen)
+    # print(seen)
 
     return None

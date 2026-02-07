@@ -1,153 +1,148 @@
-from select.selectParser import SelectParser
-
-class QueryParser:
-
-    def __init__(self, query):
-        self.query = query
-        self.queryTypes = ['select', 'insert', 'update', 'alter', 'drop', 'delete', 'truncate', 'create']
-        self.comparators  = {"=", "!=", "<", ">", "<=", ">="}
-
-    def tokenize(self):
-        sql = self.query.strip()
-        tokens = []
-        word = ""
-        i = 0
-
-        OP_CHARS = set("<>!=")
-
-        while i < len(sql):
-            ch = sql[i]
-
-            if ch.isalnum() or ch == "_":
-                word += ch
-                i += 1
-                continue
-
-            if word:
-                tokens.append(word.lower())
-                word = ""
-
-            if ch in OP_CHARS:
-                op = ch
-                i += 1
-                while i < len(sql) and sql[i] in OP_CHARS:
-                    op += sql[i]
-                    i += 1
-                tokens.append(op)
-                continue
-
-            if ch in {",", "(", ")", ";", "*", '+', '-', '/', '%'}:
-                tokens.append(ch)
-                i += 1
-                continue
-
-            i += 1
-
-        if word:
-            tokens.append(word.lower())
-
-        # print(tokens)
-
-        return tokens
-
-
-    def route(self, token):
-
-        match token:
-            case "select":
-                return SelectParser()
-            case "alter":
-                pass
-            case "create":
-                pass
-            case "update":
-                pass
-            case "drop":
-                pass
-            case "delete":
-                pass
-            case "truncate":
-                pass
-            case "insert":
-                pass
-
-    def analyse(self):
-        
-        tokens = self.tokenize()
-
-        if not tokens:
-            return {
-                "error": "empty query"
-            }
-        
-        queryType = tokens[0]
-
-        if queryType not in self.queryTypes:
-            return {
-                "Error": "Invalid sql query",
-                "Issue": "The start token is not a valid sql keyword"
-            }
-
-        parser = self.route(queryType)
-        return parser.analyse(tokens)
-
-
-
+from QueryParser import QueryParser
 
 TEST_CASES = [
-    # ---------- SELECT clause violations ----------
-    ("SELECT a,, b FROM t WHERE a = 1", False),          # double comma
-    ("SELECT a , , b FROM t WHERE a = 1", False),        # spaced double comma
-    ("SELECT a b c FROM t WHERE a = 1", False),          # multiple missing commas
-    ("SELECT * a FROM t WHERE a = 1", False),            # * mixed without comma
-    ("SELECT count FROM t WHERE a = 1", False),          # aggregate without ()
-    ("SELECT sum() FROM t WHERE a = 1", False),          # empty aggregate args
-    ("SELECT sum(a,) FROM t WHERE a = 1", False),        # trailing comma in aggregate
-    ("SELECT a AS 123 FROM t WHERE a = 1", False),       # numeric alias
-    ("SELECT a AS select FROM t WHERE a = 1", False),    # keyword alias
-    ("SELECT a AS b c FROM t WHERE a = 1", False),       # alias without AS support
-    ("SELECT a AS FROM FROM t WHERE a = 1", False),      # double keyword misuse
 
-    # ---------- FROM clause issues ----------
-    ("SELECT a WHERE a = 1", False),                     # missing FROM
-    ("SELECT a FROM WHERE a = 1", False),                # missing table
-    ("SELECT a FROM t t WHERE a = 1", False),             # duplicate table name
-    ("SELECT a FROM , t WHERE a = 1", False),             # comma in FROM
+    # =========================================================
+    # 1. BASIC VALID QUERIES (sanity)
+    # =========================================================
+    ("SELECT a FROM t", True),
+    ("SELECT a FROM t WHERE a = 1", True),
+    ("SELECT * FROM t", True),
+    ("SELECT a, b FROM t", True),
+    ("SELECT a AS x FROM t", True),
+    ("SELECT (a) FROM t", True),
+    ("SELECT (a + b) FROM t", True),
 
-    # ---------- WHERE boolean structure ----------
-    ("SELECT a FROM t WHERE AND a = 1", False),           # leading AND
-    ("SELECT a FROM t WHERE OR a = 1", False),            # leading OR
-    ("SELECT a FROM t WHERE a = 1 AND", False),           # trailing AND
-    ("SELECT a FROM t WHERE a = 1 OR", False),            # trailing OR
-    ("SELECT a FROM t WHERE a = 1 AND OR b = 2", False),  # consecutive logical ops
-    ("SELECT a FROM t WHERE a = 1 OR AND b = 2", False),  # reversed logical ops
+    # =========================================================
+    # 2. BASIC SELECT ERRORS
+    # =========================================================
+    ("SELECT FROM t", False),
+    ("SELECT , a FROM t", False),
+    ("SELECT a, FROM t", False),
+    ("SELECT a b FROM t", False),
+    ("SELECT * a FROM t", False),
+    ("SELECT a AS 123 FROM t", False),
+    ("SELECT a AS select FROM t", False),
 
-    # ---------- WHERE comparison errors ----------
-    ("SELECT a FROM t WHERE = 1", False),                 # missing LHS
-    ("SELECT a FROM t WHERE a =", False),                 # missing RHS
-    ("SELECT a FROM t WHERE a == 1", False),              # invalid comparator
-    ("SELECT a FROM t WHERE a >< 1", False),              # invalid comparator
-    ("SELECT a FROM t WHERE a => 1", False),              # invalid comparator
-    ("SELECT a FROM t WHERE a <= >= 1", False),           # chained comparators
+    # =========================================================
+    # 3. FROM CLAUSE ERRORS
+    # =========================================================
+    ("SELECT a WHERE a = 1", False),          # missing FROM
+    ("SELECT a FROM WHERE a = 1", False),     # missing table
+    ("SELECT a FROM , t WHERE a = 1", False),
+    ("SELECT a FROM t t WHERE a = 1", False), # alias == table
+    ("SELECT a FROM t, t WHERE a = 1", False),# duplicate table
 
-    # ---------- WHERE arithmetic errors ----------
-    ("SELECT a FROM t WHERE a +", False),                 # dangling operator
-    ("SELECT a FROM t WHERE + a = 1", False),             # unary not supported
-    ("SELECT a FROM t WHERE a * / b > 1", False),         # invalid operator sequence
-    ("SELECT a FROM t WHERE a + (b * ) > 1", False),      # empty sub-expression
-    ("SELECT a FROM t WHERE a + () > 1", False),          # empty parentheses
+    # =========================================================
+    # 4. QUALIFIED COLUMNS
+    # =========================================================
+    ("SELECT t.a FROM t", True),
+    ("SELECT t.a, t.b FROM t", True),
+    ("SELECT (t.a + t.b) FROM t", True),
 
-    # ---------- Parentheses chaos ----------
-    ("SELECT a FROM t WHERE ((a = 1)", False),            # missing close
-    ("SELECT a FROM t WHERE (a = 1))", False),            # extra close
-    ("SELECT a FROM t WHERE () AND a = 1", False),        # empty group
-    ("SELECT a FROM t WHERE (AND a = 1)", False),         # invalid group
-    ("SELECT a FROM t WHERE (a = 1 OR)", False),          # dangling OR in parens
+    ("SELECT x.a FROM t", False),              # unknown alias
+    ("SELECT t. FROM t", False),
+    ("SELECT .a FROM t", False),
+    ("SELECT t.a.b FROM t", False),
 
-    # ---------- Mixed SELECT + WHERE failures ----------
-    ("SELECT a b FROM t WHERE a ==", False),              # both invalid
-    ("SELECT * , a FROM t WHERE a + > 1", False),         # * misuse + bad expr
-    ("SELECT a AS FROM t WHERE a > b < c", False),        # alias + comparison error
+    # =========================================================
+    # 5. AGGREGATE FUNCTIONS
+    # =========================================================
+    ("SELECT SUM(a) FROM t", True),
+    ("SELECT COUNT(*) FROM t", True),
+    ("SELECT SUM(a + b) FROM t", True),
+    ("SELECT SUM((a + b) * c) FROM t", True),
+
+    ("SELECT SUM() FROM t", False),
+    ("SELECT SUM(a,) FROM t", False),
+    ("SELECT SUM(a b) FROM t", False),
+    ("SELECT SUM(a AND b) FROM t", False),
+    ("SELECT SUM(SUM(a)) FROM t", False),
+
+    # =========================================================
+    # 6. WHERE – SIMPLE COMPARISONS
+    # =========================================================
+    ("SELECT a FROM t WHERE a = 1", True),
+    ("SELECT a FROM t WHERE a != 1", True),
+    ("SELECT a FROM t WHERE a > 1", True),
+
+    ("SELECT a FROM t WHERE", False),
+    ("SELECT a FROM t WHERE a =", False),
+    ("SELECT a FROM t WHERE = 1", False),
+    ("SELECT a FROM t WHERE a == 1", False),
+
+    # =========================================================
+    # 7. WHERE – ARITHMETIC EXPRESSIONS
+    # =========================================================
+    ("SELECT a FROM t WHERE a + 1 > 2", True),
+    ("SELECT a FROM t WHERE (a + b) * c > 10", True),
+    ("SELECT a FROM t WHERE a + (b * (c + d)) > e", True),
+
+    ("SELECT a FROM t WHERE a + > 1", False),
+    ("SELECT a FROM t WHERE (a + ) > 1", False),
+    ("SELECT a FROM t WHERE (a + ()) > 1", False),
+
+    # =========================================================
+    # 8. WHERE – LOGICAL EXPRESSIONS
+    # =========================================================
+    ("SELECT a FROM t WHERE a = 1 AND b = 2", True),
+    ("SELECT a FROM t WHERE a = 1 OR b = 2", True),
+    ("SELECT a FROM t WHERE (a = 1 OR b = 2) AND c = 3", True),
+
+    ("SELECT a FROM t WHERE AND a = 1", False),
+    ("SELECT a FROM t WHERE a = 1 AND", False),
+    ("SELECT a FROM t WHERE a = 1 OR AND b = 2", False),
+
+    # =========================================================
+    # 9. BETWEEN / IN
+    # =========================================================
+    ("SELECT a FROM t WHERE a BETWEEN 1 AND 5", True),
+    ("SELECT a FROM t WHERE a BETWEEN (b + 1) AND (c * 2)", True),
+    ("SELECT a FROM t WHERE a IN (1, 2, 3)", True),
+    ("SELECT a FROM t WHERE a IN ((1 + 2), (3 * 4))", True),
+
+    ("SELECT a FROM t WHERE a BETWEEN 1", False),
+    ("SELECT a FROM t WHERE a BETWEEN AND 5", False),
+    ("SELECT a FROM t WHERE a IN ()", False),
+    ("SELECT a FROM t WHERE a IN (1, , 2)", False),
+    ("SELECT a FROM t WHERE a IN (1 AND 2)", False),
+
+    # =========================================================
+    # 10. AGGREGATE + WHERE INTEGRATION
+    # =========================================================
+    ("SELECT SUM(a) FROM t WHERE a > 1", True),
+    ("SELECT SUM(a + b) FROM t WHERE a > 1", True),
+    ("SELECT SUM(t.a * (t.b + t.c)) FROM t WHERE t.a > 10", True),
+
+    ("SELECT SUM(a) FROM t WHERE SUM(a) > 1", False),
+
+    # =========================================================
+    # 11. DEEP NESTING (STRESS)
+    # =========================================================
+    ("SELECT (((a))) FROM t", True),
+    ("SELECT ((a + b) * (c - d)) FROM t", True),
+    ("SELECT a FROM t WHERE (((a + b) * c) > (d - e))", True),
+
+    ("SELECT (((a)) FROM t", False),
+    ("SELECT a FROM t WHERE (((a + b))", False),
+
+    # =========================================================
+    # 12. TOKEN BOUNDARY TORTURE
+    # =========================================================
+    ("SELECT ( t . a + ( t . b * t . c ) ) FROM t", True),
+    ("SELECT t . a FROM t", True),
+
+    ("SELECT t . FROM t", False),
+    ("SELECT . a FROM t", False),
+    ("SELECT t . a . b FROM t", False),
+
+    # =========================================================
+    # 13. INFINITE LOOP / STATE DESYNC DETECTORS
+    # =========================================================
+    ("SELECT (((((((a))))))) FROM t", True),
+    ("SELECT (((a + b)))) FROM t", False),
+    ("SELECT (a + (b * (c + (d * )))) FROM t", False),
+    ("SELECT a FROM t WHERE (((((a = 1)))))", True),
 ]
 
 
