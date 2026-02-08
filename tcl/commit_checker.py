@@ -1,35 +1,23 @@
 class CommitChecker:
-    """
-    Validates COMMIT statement syntax.
-    COMMIT must be a standalone statement with no arguments.
-    """
-
     def validate(self, query: str):
-        cleaned_query = query.strip().upper()
+        if not query or not query.strip():
+            return None
 
-        # Correct COMMIT
-        if cleaned_query == "COMMIT;":
-            return {
-                "valid": True,
-                "message": "Valid COMMIT statement."
-            }
+        cleaned = query.strip().upper()
 
-        # COMMIT without semicolon
-        if cleaned_query == "COMMIT":
+        if not cleaned.startswith("COMMIT"):
+            return None  # not my statement
+
+        if cleaned == "COMMIT":
             return {
-                "valid": False,
                 "error": "Missing semicolon after COMMIT.",
-                "reason": "SQL statements must end with a semicolon.",
                 "suggestion": "COMMIT;"
             }
 
-        # COMMIT with extra words
-        if cleaned_query.startswith("COMMIT"):
-            return {
-                "valid": False,
-                "error": "Invalid COMMIT usage.",
-                "reason": "COMMIT must be used as a standalone statement.",
-                "suggestion": "COMMIT;"
-            }
+        if cleaned == "COMMIT;":
+            return None
 
-        return None
+        return {
+            "error": "Invalid COMMIT usage.",
+            "suggestion": "COMMIT;"
+        }

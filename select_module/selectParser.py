@@ -1,11 +1,11 @@
-from select.helper.clauseChecksHelper import extractClauses, checkDuplicateClauses, checkMandatoryClauses, checkOrder
-from select.helper.selectChecksHelper import collectQualifiedColumns, checkAggregateFunctions, checkColumnNames,containsAggregate, handleSelectOrder, checkStarUsage, extractSelectList, extractAliases
-from select.helper.whereChecksHelper import checkParentheses, extractConditions, validateBooleanExpr
-from select.helper.fromChecksHelper import validateJoinChain, containsJoin, validateTableRef, splitRef, extractFromList
-from select.helper.groupByChecksHelper import normalize, stripAlias, splitGroupByExpressions, validateGroupBy, extractGroupByList, splitSelectExpressions
-from select.helper.havingChecksHelper import validateHavingExpr, isValidHavingRHS, stripParens, extractHaving, splitHavingExprs, splitComparison
-from select.helper.orderByHelpers import isValidOrderByExpr, splitOrderByItems, extractOrderBy, splitOrderByItems
-from select.helper.utils import extractLimit
+from select_module.helper.clauseChecksHelper import extractClauses, checkDuplicateClauses, checkMandatoryClauses, checkOrder
+from select_module.helper.selectChecksHelper import collectQualifiedColumns, checkAggregateFunctions, checkColumnNames,containsAggregate, handleSelectOrder, checkStarUsage, extractSelectList, extractAliases
+from select_module.helper.whereChecksHelper import checkParentheses, extractConditions, validateBooleanExpr
+from select_module.helper.fromChecksHelper import validateJoinChain, containsJoin, validateTableRef, splitRef, extractFromList
+from select_module.helper.groupByChecksHelper import normalize, stripAlias, splitGroupByExpressions, validateGroupBy, extractGroupByList, splitSelectExpressions
+from select_module.helper.havingChecksHelper import validateHavingExpr, isValidHavingRHS, stripParens, extractHaving, splitHavingExprs, splitComparison
+from select_module.helper.orderByHelpers import isValidOrderByExpr, splitOrderByItems, extractOrderBy, splitOrderByItems
+from select_module.helper.utils import extractLimit
 
 class SelectParser:
     """
@@ -143,7 +143,7 @@ class SelectParser:
                         "error": "Invalid derived table"
                     }
 
-                from select.selectParser import SelectParser
+                from select_module.selectParser import SelectParser
                 parser = SelectParser()
                 err = parser.analyse(inner)
                 if err:

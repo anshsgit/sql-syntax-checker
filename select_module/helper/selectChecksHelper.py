@@ -1,12 +1,12 @@
-from select.helper.utils import (
+from select_module.helper.utils import (
     isQualifiedColumnAt,
     consumeAggregate,
     SQL_KEYWORDS,
     AGG_FUNCS,
     isColumnToken,
 )
-from select.helper.whereChecksHelper import validateExpression
-from select.helper.whereChecksHelper import ARITHMETIC_OPS
+from select_module.helper.whereChecksHelper import validateExpression
+from select_module.helper.whereChecksHelper import ARITHMETIC_OPS
 
 
 # ---------------------------------------------------------
@@ -268,7 +268,7 @@ def handleSelectOrder(selectList):
                     return {"error": "Empty expression in SELECT"}
                 
                 if is_subquery:
-                    from select.selectParser import SelectParser
+                    from select_module.selectParser import SelectParser
                     parser = SelectParser()
                     err = parser.analyse(inner)
                     if err:

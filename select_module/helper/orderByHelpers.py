@@ -1,6 +1,6 @@
-from select.helper.havingChecksHelper import stripParens, normalize
-from select.helper.whereChecksHelper import validateExpression
-from select.helper.groupByChecksHelper import containsAggregate
+from select_module.helper.havingChecksHelper import stripParens, normalize
+from select_module.helper.whereChecksHelper import validateExpression
+from select_module.helper.groupByChecksHelper import containsAggregate
 
 
 def extractOrderBy(tokens):

@@ -1,30 +1,36 @@
-from commit_checker import CommitChecker
-from rollback_checker import RollbackChecker
-from savepoint_checker import SavepointChecker
+from tcl.commit_checker import CommitChecker
+from tcl.rollback_checker import RollbackChecker
+from tcl.savepoint_checker import SavepointChecker
 
 
 class TCLValidator:
-    """
-    Routes SQL queries to appropriate TCL checkers.
-    """
-
     def __init__(self):
-        self.commit_checker = CommitChecker()
-        self.rollback_checker = RollbackChecker()
-        self.savepoint_checker = SavepointChecker()
+        self.checkers = [
+            CommitChecker(),
+            RollbackChecker(),
+            SavepointChecker()
+        ]
 
     def validate(self, query: str):
-        for checker in [
-            self.commit_checker,
-            self.rollback_checker,
-            self.savepoint_checker
-        ]:
+        if not query or not query.strip():
+            return None
+
+        upper = query.strip().upper()
+
+        for checker in self.checkers:
             result = checker.validate(query)
-            if result:
+
+            # If checker applies and finds an error
+            if result is not None:
                 return result
 
+            # If checker applies and is valid → stop
+            if upper.startswith(
+                ("COMMIT", "ROLLBACK", "SAVEPOINT")
+            ):
+                return None
+
         return {
-            "valid": False,
             "error": "Unsupported TCL statement.",
-            "reason": "Only COMMIT, ROLLBACK, and SAVEPOINT are supported."
+            "suggestion": "Use COMMIT;, ROLLBACK;, ROLLBACK TO <savepoint>, or SAVEPOINT <name>;"
         }

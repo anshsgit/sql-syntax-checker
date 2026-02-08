@@ -1,9 +1,9 @@
 from html import parser
 
 from pydantic import validator
-from insert.insert_parser import InsertParser
-from insert.insert_validator import InsertValidator
-from insert.insert_suggestions import InsertSuggester
+from insert_module.insert_parser import InsertParser
+from insert_module.insert_validator import InsertValidator
+from insert_module.insert_suggestions import InsertSuggester
 
 
 def run_test(query: str):

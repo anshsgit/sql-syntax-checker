@@ -1,184 +1,160 @@
 from validator.SyntaxValidator import SyntaxValidator
 
+
 class CreateDDL:
 
-    #COLUMN / CONSTRAINT VALIDATION 
-
-    #isTableConstraint
-    """The isTableConstraint method checks if a given definition is a table-level constraint by looking at,
-    the first token and determining if it matches known constraint types such as PRIMARY, UNIQUE, FOREIGN, or CHECK."""
+    # --------------------------------------------------
+    # COLUMN / CONSTRAINT HELPERS
+    # --------------------------------------------------
 
     @staticmethod
     def isTableConstraint(defn):
         first = SyntaxValidator.tokenize(defn)[0].upper()
         return first in ("PRIMARY", "UNIQUE", "FOREIGN", "CHECK")
 
-
     @staticmethod
     def validateColumnDefinition(defn):
         tokens = SyntaxValidator.tokenize(defn)
 
-        # Column name + data type required
         if len(tokens) < 2:
-            return False, "Column definition must include name and data type"
+            return {"error": "Column definition must include name and data type"}
 
         colName = tokens[0]
         if not SyntaxValidator.isValidIdentifier(colName):
-            return False, f"Invalid column name '{colName}'"
+            return {"error": f"Invalid column name '{colName}'"}
 
-        i = 2  # start after column name and data type
+        i = 2
 
         while i < len(tokens):
             token = tokens[i].upper()
 
-            # PRIMARY KEY
             if token == "PRIMARY":
                 if i + 1 < len(tokens) and tokens[i + 1].upper() == "KEY":
                     i += 2
                 else:
-                    return False, "PRIMARY must be followed by KEY"
+                    return {"error": "PRIMARY must be followed by KEY"}
 
-            # UNIQUE
             elif token == "UNIQUE":
                 i += 1
 
-            # NOT NULL
             elif token == "NOT":
                 if i + 1 < len(tokens) and tokens[i + 1].upper() == "NULL":
                     i += 2
                 else:
-                    return False, "NOT must be followed by NULL"
+                    return {"error": "NOT must be followed by NULL"}
 
-            # DEFAULT value
             elif token == "DEFAULT":
                 if i + 1 >= len(tokens):
-                    return False, "DEFAULT must have a value"
+                    return {"error": "DEFAULT must have a value"}
                 i += 2
 
-            # CHECK (...)
             elif token == "CHECK":
                 if "(" not in defn or ")" not in defn:
-                    return False, "CHECK constraint must be enclosed in parentheses"
-                break  # do not parse inside CHECK
+                    return {"error": "CHECK constraint must be enclosed in parentheses"}
+                break
 
-            # REFERENCES table(column)
             elif token == "REFERENCES":
                 if i + 1 >= len(tokens):
-                    return False, "REFERENCES must specify a table"
-                refToken = tokens[i + 1]
-                refTable = refToken.split("(")[0]
+                    return {"error": "REFERENCES must specify a table"}
 
+                refTable = tokens[i + 1].split("(")[0]
                 if not SyntaxValidator.isValidIdentifier(refTable):
-                    return False, f"Invalid referenced table '{refTable}'"
-            
+                    return {"error": f"Invalid referenced table '{refTable}'"}
+
                 if "(" not in defn or ")" not in defn:
-                    return False, "REFERENCES must specify referenced column"
-                break  # do not parse inside REFERENCES
+                    return {"error": "REFERENCES must specify referenced column"}
+                break
 
             else:
-                return False, f"Invalid column constraint '{tokens[i]}'"
+                return {"error": f"Invalid column constraint '{tokens[i]}'"}
 
-        return True, ""
+        return None
 
-
-    #CREATE TABLE VALIDATION
-
-    #validateCreateTableQuery
-    """The validateCreateTableQuery method validates a CREATE TABLE SQL query by checking for correct syntax,
-    ensuring that the query starts with CREATE TABLE (optionally with IF NOT EXISTS), validating the table name as a proper identifier, 
-    checking that column definitions are enclosed in parentheses, ensuring that there is at least one column defined, 
-    and validating each column definition for proper structure and constraints."""
+    # --------------------------------------------------
+    # CREATE TABLE
+    # --------------------------------------------------
 
     @staticmethod
     def validateCreateTableQuery(query):
         if not query or not query.strip():
-            return False, "Query is empty"
+            return {"error": "Query is empty"}
 
         if not SyntaxValidator.hasBalancedParentheses(query):
-            return False, "Unbalanced parentheses in query"
+            return {"error": "Unbalanced parentheses in query"}
 
         query = query.strip().rstrip(";")
         tokens = SyntaxValidator.tokenize(query)
 
         if len(tokens) < 4:
-            return False, "Incomplete CREATE TABLE statement"
+            return {"error": "Incomplete CREATE TABLE statement"}
 
         if tokens[0].upper() != "CREATE":
-            return False, "Statement must start with CREATE"
+            return {"error": "Statement must start with CREATE"}
 
         if tokens[1].upper() != "TABLE":
-            return False, "Expected TABLE keyword"
+            return {"error": "Expected TABLE keyword"}
 
         index = 2
         if tokens[index:index + 3] == ["IF", "NOT", "EXISTS"]:
             index += 3
 
         if index >= len(tokens):
-            return False, "Table name is missing"
+            return {"error": "Table name is missing"}
 
-        tableToken = tokens[index]
-        tableName = tableToken.split("(")[0]
-
+        tableName = tokens[index].split("(")[0]
         if not SyntaxValidator.isValidIdentifier(tableName):
-            return False, f"Invalid table name '{tableName}'"
+            return {"error": f"Invalid table name '{tableName}'"}
 
         remainder = query[query.find(tableName) + len(tableName):].strip()
 
         if not remainder.startswith("(") or not remainder.endswith(")"):
-            return False, "Column definitions must be enclosed in parentheses"
+            return {"error": "Column definitions must be enclosed in parentheses"}
 
         block = remainder[1:-1].strip()
-
         if not block:
-            return False, "Table must have at least one column"
+            return {"error": "Table must have at least one column"}
 
         if block.endswith(","):
-            return False, "Trailing comma in column definition is not allowed"
+            return {"error": "Trailing comma in column definition is not allowed"}
 
         definitions = SyntaxValidator.splitByCommaRespectingParens(block)
         hasColumn = False
 
         for d in definitions:
             if not d:
-                return False, "Empty column definition due to trailing comma"
+                return {"error": "Empty column definition due to trailing comma"}
 
-            #TABLE-LEVEL CONSTRAINTS
             if CreateDDL.isTableConstraint(d):
                 continue
 
-            #COLUMN-LEVEL VALIDATION 
-            valid, msg = CreateDDL.validateColumnDefinition(d)
-            if not valid:
-                return False, msg
+            err = CreateDDL.validateColumnDefinition(d)
+            if err:
+                return err
 
             hasColumn = True
 
         if not hasColumn:
-            return False, "Table must contain at least one column"
+            return {"error": "Table must contain at least one column"}
 
-        return True, "Valid CREATE TABLE query"
+        return None
 
+    # --------------------------------------------------
+    # CREATE VIEW
+    # --------------------------------------------------
 
-    #CREATE VIEW VALIDATION
-
-    #validateCreateViewQuery
-    """The validateCreateViewQuery method validates a CREATE VIEW SQL query by checking for correct syntax,
-    ensuring that the query starts with CREATE VIEW (optionally with OR REPLACE and IF NOT EXISTS), validating the view name as a proper identifier, 
-    checking for an optional column list, and confirming that the query contains a valid SELECT statement following the AS keyword."""
-   
     @staticmethod
     def validateCreateViewQuery(query):
         if not query or not query.strip():
-            return False, "Query is empty"
+            return {"error": "Query is empty"}
 
         if not SyntaxValidator.hasBalancedParentheses(query):
-            return False, "Unbalanced parentheses in query"
+            return {"error": "Unbalanced parentheses in query"}
 
         query = query.strip().rstrip(";")
         tokens = SyntaxValidator.tokenize(query)
 
         if tokens[0].upper() != "CREATE":
-            return False, "Statement must start with CREATE"
+            return {"error": "Statement must start with CREATE"}
 
         index = 1
         if tokens[index:index + 3] == ["OR", "REPLACE", "VIEW"]:
@@ -186,175 +162,161 @@ class CreateDDL:
         elif tokens[index].upper() == "VIEW":
             index += 1
         else:
-            return False, "Expected VIEW keyword"
+            return {"error": "Expected VIEW keyword"}
 
         if tokens[index:index + 3] == ["IF", "NOT", "EXISTS"]:
             index += 3
 
         if index >= len(tokens):
-            return False, "View name is missing"
+            return {"error": "View name is missing"}
 
         viewName = tokens[index]
         if not SyntaxValidator.isValidIdentifier(viewName):
-            return False, f"Invalid view name '{viewName}'"
+            return {"error": f"Invalid view name '{viewName}'"}
 
         remainder = query[query.find(viewName) + len(viewName):].strip()
 
         if remainder.startswith("("):
             close = remainder.find(")")
             if close == -1:
-                return False, "Unclosed column list"
+                return {"error": "Unclosed column list"}
 
             columnBlock = remainder[1:close]
-
             if columnBlock.strip().endswith(","):
-                return False, "Trailing comma in view column list is not allowed"
+                return {"error": "Trailing comma in view column list is not allowed"}
 
             columns = SyntaxValidator.splitByCommaRespectingParens(columnBlock)
             for col in columns:
                 if not col:
-                    return False, "Empty column name in view definition"
+                    return {"error": "Empty column name in view definition"}
                 if not SyntaxValidator.isValidIdentifier(col):
-                    return False, f"Invalid view column '{col}'"
+                    return {"error": f"Invalid view column '{col}'"}
 
             remainder = remainder[close + 1:].strip()
 
         if not remainder.upper().startswith("AS"):
-            return False, "Missing AS keyword"
+            return {"error": "Missing AS keyword"}
 
-        selectPart = remainder[2:].strip()
-        if not selectPart.upper().startswith("SELECT"):
-            return False, "CREATE VIEW must use SELECT"
+        if not remainder[2:].strip().upper().startswith("SELECT"):
+            return {"error": "CREATE VIEW must use SELECT"}
 
-        return True, "Valid CREATE VIEW query"
+        return None
 
-
-    #CREATE INDEX VALIDATION 
-
-    #validateCreateIndexQuery
-    """The validateCreateIndexQuery method validates a CREATE INDEX SQL query by checking for correct syntax, 
-    ensuring that the query starts with CREATE INDEX (optionally with UNIQUE), validating the index name and table name as proper identifiers, 
-    confirming the presence of the ON keyword, and verifying that the index column list is properly enclosed in parentheses,
-    and contains valid column names without trailing commas."""
+    # --------------------------------------------------
+    # CREATE INDEX
+    # --------------------------------------------------
 
     @staticmethod
     def validateCreateIndexQuery(query):
         if not query or not query.strip():
-            return False, "Query is empty"
+            return {"error": "Query is empty"}
 
         query = query.strip().rstrip(";")
         tokens = SyntaxValidator.tokenize(query)
 
         if len(tokens) < 5:
-            return False, "Incomplete CREATE INDEX statement"
+            return {"error": "Incomplete CREATE INDEX statement"}
 
         if tokens[0].upper() != "CREATE":
-            return False, "Statement must start with CREATE"
+            return {"error": "Statement must start with CREATE"}
 
         index = 1
-
-        # UNIQUE (optional)
         if tokens[index].upper() == "UNIQUE":
             index += 1
-            if index >= len(tokens):
-                return False, "INDEX keyword is missing"
 
-        # INDEX keyword
         if tokens[index].upper() != "INDEX":
-            return False, "Expected INDEX keyword"
+            return {"error": "Expected INDEX keyword"}
 
         index += 1
         if index >= len(tokens):
-            return False, "Index name is missing"
+            return {"error": "Index name is missing"}
 
-        # Index name
         indexName = tokens[index]
         if not SyntaxValidator.isValidIdentifier(indexName):
-            return False, f"Invalid index name '{indexName}'"
+            return {"error": f"Invalid index name '{indexName}'"}
 
         index += 1
         if index >= len(tokens) or tokens[index].upper() != "ON":
-            return False, "Missing ON keyword"
+            return {"error": "Missing ON keyword"}
 
         index += 1
         if index >= len(tokens):
-            return False, "Table name is missing"
+            return {"error": "Table name is missing"}
 
-        # Table name
-        tableToken = tokens[index]
-        tableName = tableToken.split("(")[0]
-
+        tableName = tokens[index].split("(")[0]
         if not SyntaxValidator.isValidIdentifier(tableName):
-            return False, f"Invalid table name '{tableName}'"
+            return {"error": f"Invalid table name '{tableName}'"}
 
         onPos = query.upper().find(" ON ")
         parenStart = query.find("(", onPos)
 
         if parenStart == -1 or not query.endswith(")"):
-            return False, "Index column list must be enclosed in parentheses"
+            return {"error": "Index column list must be enclosed in parentheses"}
 
         columnBlock = query[parenStart + 1:-1].strip()
-
         if not columnBlock:
-            return False, "Index must contain at least one column"
+            return {"error": "Index must contain at least one column"}
 
         if columnBlock.endswith(","):
-            return False, "Trailing comma in index column list is not allowed"
+            return {"error": "Trailing comma in index column list is not allowed"}
 
         columns = SyntaxValidator.splitByCommaRespectingParens(columnBlock)
-
         for col in columns:
             parts = SyntaxValidator.tokenize(col)
-            if not parts:
-                return False, "Empty index column definition"
+            if not parts or not SyntaxValidator.isValidIdentifier(parts[0]):
+                return {"error": f"Invalid index column '{parts[0]}'"}
 
-            if not SyntaxValidator.isValidIdentifier(parts[0]):
-                return False, f"Invalid index column '{parts[0]}'"
+            if len(parts) > 1 and parts[1].upper() not in ("ASC", "DESC"):
+                return {"error": f"Invalid sort order '{parts[1]}'"}
 
-            if len(parts) > 1:
-                order = parts[1].upper()
-                if order not in ("ASC", "DESC"):
-                    return False, f"Invalid sort order '{parts[1]}'"
+        return None
 
-        return True, "Valid CREATE INDEX query"
-
-
-    #CREATE DATABASE VALIDATION 
-
-    #validateCreateDatabaseQuery
-    """The validateCreateDatabaseQuery method validates a CREATE DATABASE SQL query by checking for correct syntax, 
-    ensuring that the query starts with CREATE DATABASE (optionally with IF NOT EXISTS), validating the database name as a proper identifier,
-    and confirming that there are no unexpected extra tokens after the database name."""
+    # --------------------------------------------------
+    # CREATE DATABASE
+    # --------------------------------------------------
 
     @staticmethod
     def validateCreateDatabaseQuery(query):
         if not query or not query.strip():
-            return False, "Query is empty"
+            return {"error": "Query is empty"}
 
         query = query.strip().rstrip(";")
         tokens = SyntaxValidator.tokenize(query)
 
         if len(tokens) < 3:
-            return False, "Incomplete CREATE DATABASE statement"
+            return {"error": "Incomplete CREATE DATABASE statement"}
 
         if tokens[0].upper() != "CREATE":
-            return False, "Statement must start with CREATE"
+            return {"error": "Statement must start with CREATE"}
 
         if tokens[1].upper() != "DATABASE":
-            return False, "Expected DATABASE keyword"
+            return {"error": "Expected DATABASE keyword"}
 
         index = 2
         if tokens[index:index + 3] == ["IF", "NOT", "EXISTS"]:
             index += 3
 
         if index >= len(tokens):
-            return False, "Database name is missing"
+            return {"error": "Database name is missing"}
 
         if index + 1 < len(tokens):
-            return False, "Unexpected extra tokens after database name"
+            return {"error": "Unexpected extra tokens after database name"}
 
-        dbName = tokens[index]
-        if not SyntaxValidator.isValidIdentifier(dbName):
-            return False, f"Invalid database name '{dbName}'"
+        if not SyntaxValidator.isValidIdentifier(tokens[index]):
+            return {"error": f"Invalid database name '{tokens[index]}'"}
 
-        return True, "Valid CREATE DATABASE query"
+        return None
+
+    def validate_create(self, query):
+        q = query.strip().upper()
+
+        if q.startswith("CREATE TABLE"):
+            return CreateDDL.validateCreateTableQuery(query)
+        if q.startswith("CREATE VIEW"):
+            return CreateDDL.validateCreateViewQuery(query)
+        if q.startswith("CREATE INDEX") or q.startswith("CREATE UNIQUE INDEX"):
+            return CreateDDL.validateCreateIndexQuery(query)
+        if q.startswith("CREATE DATABASE"):
+            return CreateDDL.validateCreateDatabaseQuery(query)
+
+        return {"error": "Unsupported CREATE statement"}

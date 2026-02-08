@@ -1,4 +1,4 @@
-from select.helper.utils import isQualifiedColumnAt, isColumnToken, consumeAggregate, AGG_FUNCS, isSubquery
+from select_module.helper.utils import isQualifiedColumnAt, isColumnToken, consumeAggregate, AGG_FUNCS, isSubquery
 
 # Logical operators for boolean expressions
 LOGICAL_OPS = {"and", "or"}
@@ -186,9 +186,9 @@ def validateIn(tokens, clause):
 
     # ---- IN (subquery) ----
     if isSubquery(items):
-        from select.selectParser import SelectParser
-        from select.helper.selectChecksHelper import extractSelectList
-        from select.helper.groupByChecksHelper import splitSelectExpressions
+        from select_module.selectParser import SelectParser
+        from select_module.helper.selectChecksHelper import extractSelectList
+        from select_module.helper.groupByChecksHelper import splitSelectExpressions
 
         parser = SelectParser()
         err = parser.analyse(items)
@@ -280,9 +280,9 @@ def validateBinaryComparison(tokens, clause):
 
 
 def validateScalarSubquery(tokens):
-    from select.selectParser import SelectParser
-    from select.helper.selectChecksHelper import extractSelectList
-    from select.helper.groupByChecksHelper import splitSelectExpressions
+    from select_module.selectParser import SelectParser
+    from select_module.helper.selectChecksHelper import extractSelectList
+    from select_module.helper.groupByChecksHelper import splitSelectExpressions
 
     parser = SelectParser()
     err = parser.analyse(tokens)

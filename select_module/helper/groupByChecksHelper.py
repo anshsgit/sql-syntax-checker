@@ -1,4 +1,4 @@
-from select.helper.selectChecksHelper import containsAggregate
+from select_module.helper.selectChecksHelper import containsAggregate
 
 
 def normalize(expr):

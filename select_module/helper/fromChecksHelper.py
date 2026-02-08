@@ -1,4 +1,4 @@
-from select.helper.whereChecksHelper import validateBooleanExpr
+from select_module.helper.whereChecksHelper import validateBooleanExpr
 
 
 # JOIN-related keywords

@@ -1,4 +1,12 @@
-from select.selectParser import SelectParser
+from select_module.selectParser import SelectParser
+from Alter_module.alter import AlterCommand
+from Delete_module.delete import DeleteCommand
+from insert_module.insert_command import InsertCommand
+from update_module.update import UpdateCommand
+from create.CreateDDL import CreateDDL
+from truncate.TruncateDDL import TruncateDDL
+from drop.DropDDL import DropDDL
+from tcl.tcl_validator import TCLValidator
 
 
 class QueryParser:
@@ -84,37 +92,6 @@ class QueryParser:
 
         return tokens
 
-    # ---------------------------------------------------------
-    # Query routing
-    # ---------------------------------------------------------
-
-    def route(self, token):
-        """
-        Routes the query to the appropriate statement parser
-        based on the first keyword.
-        """
-        match token:
-            case "select":
-                return SelectParser()
-            case "alter":
-                pass
-            case "create":
-                pass
-            case "update":
-                pass
-            case "drop":
-                pass
-            case "delete":
-                pass
-            case "truncate":
-                pass
-            case "insert":
-                pass
-
-    # ---------------------------------------------------------
-    # Query analysis entry point
-    # ---------------------------------------------------------
-
     def analyse(self):
         """
         Main entry point for query validation.
@@ -161,6 +138,32 @@ class QueryParser:
                 "Issue": "The start token is not a valid sql keyword"
             }
 
-        # Route to appropriate parser
-        parser = self.route(queryType)
-        return parser.analyse(tokens)
+        if queryType == "alter":
+            parser = AlterCommand(self.query)
+            return parser.analyse()
+        elif queryType == "delete":
+            parser = DeleteCommand(self.query)
+            return parser.validate()
+        elif queryType == "insert":
+            parser = InsertCommand()
+            return parser.validate(self.query)
+        elif queryType == "update":
+            parser = UpdateCommand(self.query)
+            return parser.validate()
+        elif queryType == "create":
+            parser = CreateDDL()
+            return parser.validate_create(self.query)
+        elif queryType == 'truncate':
+            return TruncateDDL.validateTruncateQuery(self.query)
+        elif queryType == 'drop':
+            return DropDDL.validateDropQuery(self.query)
+        elif queryType in ("commit", "rollback", "savepoint"):
+            parser = TCLValidator()
+            return parser.validate(self.query)
+        elif queryType == "select":
+            parser = SelectParser()
+            return parser.analyse(tokens)
+        else:
+            return {
+                "error": "Not a valid query or query not supported"
+            }

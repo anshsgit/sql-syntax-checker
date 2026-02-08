@@ -1,35 +1,25 @@
 class SavepointChecker:
-    """
-    Validates SAVEPOINT statement syntax.
-    Format:
-    - SAVEPOINT savepoint_name;
-    """
-
     def validate(self, query: str):
-        cleaned_query = query.strip().upper()
+        if not query or not query.strip():
+            return None
 
-        if cleaned_query.startswith("SAVEPOINT"):
-            parts = cleaned_query.replace(";", "").split()
+        cleaned = query.strip().upper()
 
-            if len(parts) == 2:
-                return {
-                    "valid": True,
-                    "message": "Valid SAVEPOINT statement."
-                }
+        if not cleaned.startswith("SAVEPOINT"):
+            return None  # not my statement
 
-            if cleaned_query == "SAVEPOINT;" or cleaned_query == "SAVEPOINT":
-                return {
-                    "valid": False,
-                    "error": "Missing savepoint name.",
-                    "reason": "SAVEPOINT requires a name identifier.",
-                    "suggestion": "SAVEPOINT sp1;"
-                }
+        tokens = cleaned.rstrip(";").split()
 
+        if cleaned in ("SAVEPOINT", "SAVEPOINT;"):
             return {
-                "valid": False,
-                "error": "Invalid SAVEPOINT syntax.",
-                "reason": "SAVEPOINT must be followed by exactly one name.",
+                "error": "Missing savepoint name.",
                 "suggestion": "SAVEPOINT sp1;"
             }
 
-        return None
+        if len(tokens) != 2:
+            return {
+                "error": "Invalid SAVEPOINT syntax.",
+                "suggestion": "SAVEPOINT sp1;"
+            }
+
+        return None  # ✅ valid
