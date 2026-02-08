@@ -1,11 +1,11 @@
-from select.clauseChecksHelper import extractClauses, checkDuplicateClauses, checkMandatoryClauses, checkOrder
-from select.selectChecksHelper import collectQualifiedColumns, checkAggregateFunctions, checkColumnNames,containsAggregate, handleSelectOrder, checkStarUsage, extractSelectList, extractAliases
-from select.whereChecksHelper import checkParentheses, extractConditions, validateBooleanExpr
-from select.fromChecksHelper import validateJoinChain, containsJoin, validateTableRef, splitRef, extractFromList
-from select.groupByChecksHelper import normalize, stripAlias, splitGroupByExpressions, validateGroupBy, extractGroupByList, splitSelectExpressions
-from select.havingChecksHelper import validateHavingExpr, isValidHavingRHS, stripParens, extractHaving, splitHavingExprs, splitComparison
-from select.orderByHelpers import isValidOrderByExpr, splitOrderByItems, extractOrderBy, splitOrderByItems
-from select.utils import extractLimit
+from select.helper.clauseChecksHelper import extractClauses, checkDuplicateClauses, checkMandatoryClauses, checkOrder
+from select.helper.selectChecksHelper import collectQualifiedColumns, checkAggregateFunctions, checkColumnNames,containsAggregate, handleSelectOrder, checkStarUsage, extractSelectList, extractAliases
+from select.helper.whereChecksHelper import checkParentheses, extractConditions, validateBooleanExpr
+from select.helper.fromChecksHelper import validateJoinChain, containsJoin, validateTableRef, splitRef, extractFromList
+from select.helper.groupByChecksHelper import normalize, stripAlias, splitGroupByExpressions, validateGroupBy, extractGroupByList, splitSelectExpressions
+from select.helper.havingChecksHelper import validateHavingExpr, isValidHavingRHS, stripParens, extractHaving, splitHavingExprs, splitComparison
+from select.helper.orderByHelpers import isValidOrderByExpr, splitOrderByItems, extractOrderBy, splitOrderByItems
+from select.helper.utils import extractLimit
 
 class SelectParser:
     """

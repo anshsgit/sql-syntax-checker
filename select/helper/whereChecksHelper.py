@@ -1,4 +1,4 @@
-from select.utils import isQualifiedColumnAt, isColumnToken, consumeAggregate, AGG_FUNCS
+from select.helper.utils import isQualifiedColumnAt, isColumnToken, consumeAggregate, AGG_FUNCS
 
 # Logical operators for boolean expressions
 LOGICAL_OPS = {"and", "or"}

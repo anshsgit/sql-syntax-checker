@@ -1,6 +1,6 @@
-from select.whereChecksHelper import validateBooleanExpr
-from select.groupByChecksHelper import normalize, containsAggregate
-from select.utils import isColumnToken
+from select.helper.whereChecksHelper import validateBooleanExpr
+from select.helper.groupByChecksHelper import normalize, containsAggregate
+from select.helper.utils import isColumnToken
 
 
 def extractHaving(tokens):

@@ -1,3 +1,6 @@
+from QueryParser import QueryParser
+
+
 TEST_CASES = [
 
 # SELECT
@@ -852,3 +855,81 @@ TEST_CASES = [
 
 
 ]
+
+
+
+from QueryParser import QueryParser
+
+
+def run_tests(TEST_CASES, save_report=False, report_file="test_report.txt"):
+    passed = 0
+    failed = 0
+    failed_cases = []
+
+    for i, (query, should_pass) in enumerate(TEST_CASES, 1):
+        parser = QueryParser(query)
+        result = parser.analyse()
+
+        # success = no error returned
+        success = result is None or (
+            isinstance(result, dict) and result.get("status") == "ok"
+        )
+
+        if success == should_pass:
+            passed += 1
+        else:
+            failed += 1
+            failed_cases.append({
+                "id": i,
+                "query": query,
+                "expected": "PASS" if should_pass else "FAIL",
+                "got": "PASS" if success else "FAIL",
+                "error": result
+            })
+
+    # ================= REPORT =================
+    print("=" * 70)
+    print("SQL PARSER TEST REPORT")
+    print("=" * 70)
+    print(f"Total tests   : {len(TEST_CASES)}")
+    print(f"Passed        : {passed}")
+    print(f"Failed        : {failed}")
+    print(f"Success rate  : {passed / len(TEST_CASES) * 100:.2f}%")
+    print("=" * 70)
+
+    if failed_cases:
+        print("\nFAILED CASES:")
+        print("-" * 70)
+        for case in failed_cases:
+            print(f"[{case['id']}] {case['query']}")
+            print(f"  Expected : {case['expected']}")
+            print(f"  Got      : {case['got']}")
+            print(f"  Error    : {case['error']}")
+            print("-" * 70)
+
+    # ================= SAVE REPORT =================
+    if save_report:
+        with open(report_file, "w", encoding="utf-8") as f:
+            f.write("SQL PARSER TEST REPORT\n")
+            f.write("=" * 70 + "\n")
+            f.write(f"Total tests   : {len(TEST_CASES)}\n")
+            f.write(f"Passed        : {passed}\n")
+            f.write(f"Failed        : {failed}\n")
+            f.write(f"Success rate  : {passed / len(TEST_CASES) * 100:.2f}%\n")
+            f.write("=" * 70 + "\n\n")
+
+            if failed_cases:
+                f.write("FAILED CASES:\n")
+                f.write("-" * 70 + "\n")
+                for case in failed_cases:
+                    f.write(f"[{case['id']}] {case['query']}\n")
+                    f.write(f"  Expected : {case['expected']}\n")
+                    f.write(f"  Got      : {case['got']}\n")
+                    f.write(f"  Error    : {case['error']}\n")
+                    f.write("-" * 70 + "\n")
+
+        print(f"\n📄 Report saved to: {report_file}")
+
+    return passed, failed, failed_cases
+
+run_tests(TEST_CASES, save_report=True)

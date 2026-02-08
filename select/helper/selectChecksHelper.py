@@ -1,12 +1,12 @@
-from select.utils import (
+from select.helper.utils import (
     isQualifiedColumnAt,
     consumeAggregate,
     SQL_KEYWORDS,
     AGG_FUNCS,
     isColumnToken,
 )
-from select.whereChecksHelper import validateExpression
-from select.whereChecksHelper import ARITHMETIC_OPS
+from select.helper.whereChecksHelper import validateExpression
+from select.helper.whereChecksHelper import ARITHMETIC_OPS
 
 
 # ---------------------------------------------------------
