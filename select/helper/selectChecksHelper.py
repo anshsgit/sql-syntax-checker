@@ -15,15 +15,31 @@ from select.helper.whereChecksHelper import ARITHMETIC_OPS
 
 def extractSelectList(tokens):
     """
-    Extracts tokens between SELECT and FROM.
-    Returns None if either keyword is missing.
+    Extract SELECT list tokens, stopping at the OUTER FROM.
     """
-    try:
-        start = tokens.index("select") + 1
-        end = tokens.index("from")
-    except ValueError:
+    if "select" not in tokens:
         return None
-    return tokens[start:end]
+
+    i = tokens.index("select") + 1
+    depth = 0
+    select_list = []
+
+    while i < len(tokens):
+        tok = tokens[i]
+
+        if tok == "(":
+            depth += 1
+        elif tok == ")":
+            depth -= 1
+
+        # 🔥 stop only at OUTER FROM
+        if depth == 0 and tok == "from":
+            break
+
+        select_list.append(tok)
+        i += 1
+
+    return select_list
 
 
 # ---------------------------------------------------------
@@ -123,7 +139,7 @@ def checkStarUsage(selectList):
 def consumeExpr(tokens, i):
     """
     Consumes a balanced parenthesized expression starting at index i.
-    Returns (end_index, inner_tokens) or None if invalid.
+    Returns (end_index, inner_tokens, is_subquery)
     """
     if tokens[i] != "(":
         return None
@@ -142,8 +158,13 @@ def consumeExpr(tokens, i):
     if depth != 0:
         return None
 
-    # Return position after closing paren + inner tokens
-    return j, tokens[i + 1 : j - 1]
+    inner = tokens[i + 1 : j - 1]
+
+    # 🔥 detect scalar subquery
+    is_subquery = bool(inner and inner[0] == "select")
+
+    return j, inner, is_subquery
+
 
 
 # ---------------------------------------------------------
@@ -215,20 +236,49 @@ def handleSelectOrder(selectList):
     while i < len(selectList):
         tok = selectList[i]
 
+        if tok == "from":
+            break
+
+
         # -------------------------
         # Expecting an expression
         # -------------------------
+
+        # res = consumeSelectExpression(selectList, i)
+        # if res:
+        #     end, expr = res
+        #     state = "EXPECT_ALIAS_OR_COMMA"
+        #     alias_used = False
+        #     i = end
+        #     continue
+
         if state == "EXPECT_COLUMN":
 
             # ---- parenthesized expression ----
             if tok == "(":
                 res = consumeExpr(selectList, i)
+
                 if res is None:
                     return {"error": "Unmatched parenthesis in SELECT expression"}
 
-                end, inner = res
+                end, inner, is_subquery = res
+                # print(is_subquery)
+                # print(inner)
                 if not inner:
                     return {"error": "Empty expression in SELECT"}
+                
+                if is_subquery:
+                    from select.selectParser import SelectParser
+                    parser = SelectParser()
+                    err = parser.analyse(inner)
+                    if err:
+                        return {"error": "Invalid subquery", "details": err}
+
+                    # scalar subquery is a valid SELECT item
+                    state = "EXPECT_ALIAS_OR_COMMA"
+                    i = end
+                    continue
+
 
                 err = validateExpression(inner, "select")
                 if err:

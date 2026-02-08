@@ -34,6 +34,7 @@ class SelectParser:
         - clause ordering
         """
         clauses = extractClauses(tokens)
+        # print(clauses)
         self.clauses = [name for name, _ in clauses]
 
         checks = [
@@ -95,10 +96,11 @@ class SelectParser:
     def fromChecks(self, tokens):
         """
         Validates FROM clause:
-        - table references
-        - aliases
-        - JOIN syntax and semantics
+        - normal tables
+        - JOIN chains
+        - derived tables (subqueries)
         """
+
         fromList = extractFromList(tokens)
         if not fromList:
             return {
@@ -107,13 +109,61 @@ class SelectParser:
 
         self.from_tables = {}
 
-        # JOIN-based FROM clause
+        # --------------------------------------------------
+        # JOIN syntax (handled separately)
+        # --------------------------------------------------
         if containsJoin(fromList):
             return validateJoinChain(fromList, self)
 
-        # Comma-separated table references
+        # --------------------------------------------------
+        # Split comma-separated references (top-level only)
+        # --------------------------------------------------
         tableRefs = splitRef(fromList)
+
         for ref in tableRefs:
+            if not ref:
+                return {"error": "Empty table reference"}
+
+            # ==================================================
+            # 🔥 DERIVED TABLE: (SELECT ...) alias
+            # ==================================================
+            if ref[0] == "(":
+
+                # must have alias
+                if len(ref) < 3 or not ref[-1].isidentifier():
+                    return {
+                        "error": "Derived table must have an alias"
+                    }
+
+                alias = ref[-1]
+                inner = stripParens(ref[:-1])
+
+                if not inner or inner[0] != "select":
+                    return {
+                        "error": "Invalid derived table"
+                    }
+
+                from select.selectParser import SelectParser
+                parser = SelectParser()
+                err = parser.analyse(inner)
+                if err:
+                    return {
+                        "error": "Invalid subquery in FROM",
+                        "details": err
+                    }
+
+                if alias in self.from_tables:
+                    return {
+                        "error": "Duplicate table alias",
+                        "alias": alias
+                    }
+
+                self.from_tables[alias] = "<subquery>"
+                continue
+
+            # ==================================================
+            # 🔹 NORMAL TABLE
+            # ==================================================
             res = validateTableRef(ref)
             if "error" in res:
                 return res
@@ -123,13 +173,14 @@ class SelectParser:
 
             if alias in self.from_tables:
                 return {
-                    "error": "Duplicates table alias",
+                    "error": "Duplicate table alias",
                     "alias": alias
                 }
 
             self.from_tables[alias] = table
 
         return None
+
 
     # ---------------------------------------------------------
     # Column alias resolution

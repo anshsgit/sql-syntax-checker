@@ -1,4 +1,4 @@
-from select.helper.utils import isQualifiedColumnAt, isColumnToken, consumeAggregate, AGG_FUNCS
+from select.helper.utils import isQualifiedColumnAt, isColumnToken, consumeAggregate, AGG_FUNCS, isSubquery
 
 # Logical operators for boolean expressions
 LOGICAL_OPS = {"and", "or"}
@@ -157,31 +157,62 @@ def validateComparison(tokens, clause):
 # Validates IN expressions: lhs IN (value1, value2, ...)
 def validateIn(tokens, clause):
     idx = find_top_level(tokens, {"in"})
-    lhs = tokens[:idx]
+    if idx is None:
+        return {"error": "Invalid IN expression"}
+
+    # handle NOT IN
+    if idx > 0 and tokens[idx - 1] == "not":
+        lhs = tokens[:idx - 1]
+    else:
+        lhs = tokens[:idx]
+
     rhs = tokens[idx + 1:]
 
     if not lhs or not rhs:
         return {"error": "Incomplete IN expression"}
 
+    # validate LHS first
+    err = validateExpression(lhs, clause)
+    if err:
+        return err
+
     # RHS must be parenthesized
     if rhs[0] != "(" or rhs[-1] != ")":
-        return {"error": "IN requires parenthesized list"}
+        return {"error": "IN requires parenthesized list or subquery"}
 
-    items = rhs[1:-1]
+    items = items = stripOuterParens(rhs[1:-1])
     if not items:
         return {"error": "IN list cannot be empty"}
 
+    # ---- IN (subquery) ----
+    if isSubquery(items):
+        from select.selectParser import SelectParser
+        from select.helper.selectChecksHelper import extractSelectList
+        from select.helper.groupByChecksHelper import splitSelectExpressions
+
+        parser = SelectParser()
+        err = parser.analyse(items)
+        if err:
+            return {"error": "Invalid subquery in IN", "details": err}
+
+        selectList = extractSelectList(items)
+        exprs, err2 = splitSelectExpressions(selectList)
+        if err2 or len(exprs) != 1:
+            return {"error": "IN subquery must return exactly one column"}
+
+        return None
+
+    # ---- IN (value list) ----
     values = split_top_level(items, ",")
 
-    # Validate each value expression
     for v in values:
         if not v:
             return {"error": "Empty value in IN list"}
-        err = validateExpression(v, "where")
+        err = validateExpression(v, clause)
         if err:
             return err
 
-    return validateExpression(lhs, clause)
+    return None
 
 
 # Validates BETWEEN expressions: lhs BETWEEN low AND high
@@ -247,99 +278,117 @@ def validateBinaryComparison(tokens, clause):
     return validateExpression(rhs, clause)
 
 
-# Validates arithmetic and atomic expressions
-def validateExpression(tokens, clause):
 
-    # Allow SELECT *
-    if len(tokens) == 1 and tokens[0] == '*':
+def validateScalarSubquery(tokens):
+    from select.selectParser import SelectParser
+    from select.helper.selectChecksHelper import extractSelectList
+    from select.helper.groupByChecksHelper import splitSelectExpressions
+
+    parser = SelectParser()
+    err = parser.analyse(tokens)
+    if err:
+        return {"error": "Invalid subquery", "details": err}
+
+    selectList = extractSelectList(tokens)
+    exprs, err2 = splitSelectExpressions(selectList)
+    if err2 or len(exprs) != 1:
+        return {"error": "Subquery must return exactly one column"}
+
+    return None
+
+def consumeParenthesized(tokens, i):
+    depth = 1
+    j = i + 1
+
+    while j < len(tokens) and depth > 0:
+        if tokens[j] == "(":
+            depth += 1
+        elif tokens[j] == ")":
+            depth -= 1
+        j += 1
+
+    if depth != 0:
         return None
-    
-    tokens = stripOuterParens(tokens)
-    if not tokens:
-        return {"error": "Empty expression"}
 
+    return j, stripOuterParens(tokens[i + 1 : j - 1])
+
+def validateOperand(tokens, i, clause):
+    tok = tokens[i]
+
+    # Qualified column
+    if isQualifiedColumnAt(tokens, i):
+        return i + 3, None
+
+    # Aggregate
+    if tok in AGG_FUNCS:
+        if clause == "where":
+            return None, {"error": "Aggregate functions are not allowed in WHERE clause"}
+
+        result = consumeAggregate(tokens, i)
+        if result is None:
+            return None, {"error": "Invalid aggregate function usage"}
+
+        end, inner = result
+        err = validateExpression(inner, clause)
+        return (end, err)
+
+    # Atomic
+    if isColumnToken(tok) or tok.isnumeric():
+        return i + 1, None
+
+    return None, {
+        "error": "Expected operand in expression",
+        "position": i,
+        "token": tok
+    }
+
+def validateArithmeticChain(tokens, clause):
     expecting_operand = True
     i = 0
 
     while i < len(tokens):
-        tok = tokens[i]
-
         if expecting_operand:
-
-            # Parenthesized sub-expression
-            if tok == "(":
-                depth = 1
-                j = i + 1
-                while j < len(tokens) and depth > 0:
-                    if tokens[j] == "(":
-                        depth += 1
-                    elif tokens[j] == ")":
-                        depth -= 1
-                    j += 1
-
-                if depth != 0:
+            # Parenthesized
+            if tokens[i] == "(":
+                res = consumeParenthesized(tokens, i)
+                if res is None:
                     return {"error": "Unmatched parenthesis in expression"}
 
-                inner = tokens[i + 1 : j - 1]
+                j, inner = res
+
+                # scalar subquery
+                if inner and inner[0] == "select":
+                    err = validateScalarSubquery(inner)
+                    if err:
+                        return err
+
+                    # no arithmetic allowed after subquery
+                    if j < len(tokens) and tokens[j] in ARITHMETIC_OPS:
+                        return {"error": "Arithmetic on subquery is not allowed"}
+
+                    i = j
+                    expecting_operand = False
+                    continue
+
                 err = validateExpression(inner, clause)
                 if err:
                     return err
 
-                expecting_operand = False
                 i = j
-                continue
-
-            # Qualified column reference (table.column)
-            if isQualifiedColumnAt(tokens, i):
                 expecting_operand = False
-                i += 3
                 continue
 
-            # Aggregate function as operand
-            if tok in AGG_FUNCS:
-                if clause == 'where':
-                    return {
-                        "error": "Aggregate functions are not allowed in WHERE clause",
-                        "function": tok
-                    }
+            # Normal operand
+            nxt, err = validateOperand(tokens, i, clause)
+            if err:
+                return err
 
-                result = consumeAggregate(tokens, i)
-                if result is None:
-                    return {
-                        "error": "Invalid aggregate function usage",
-                        "function": tok
-                    }
-
-                end, inner = result
-                if not inner:
-                    return {
-                        "error": "Empty expression inside aggregate function",
-                        "function": tok
-                    }
-
-                err = validateExpression(inner, "where")
-                if err:
-                    return err
-
-                expecting_operand = False
-                i = end
-                continue
-
-            # Atomic operand: column or numeric literal
-            if isColumnToken(tok) or tok.isnumeric():
-                expecting_operand = False
-                i += 1
-                continue
-
-            return {
-                "error": "Expected operand in expression",
-                "position": i,
-                "token": tok
-            }
+            i = nxt
+            expecting_operand = False
+            continue
 
         else:
-            # Expect arithmetic operator
-            if tok in ARITHMETIC_OPS:
+            if tokens[i] in ARITHMETIC_OPS:
                 expecting_operand = True
                 i += 1
                 continue
@@ -347,11 +396,26 @@ def validateExpression(tokens, clause):
             return {
                 "error": "Expected arithmetic operator",
                 "position": i,
-                "token": tok
+                "token": tokens[i]
             }
 
-    # Expression cannot end while expecting an operand
     if expecting_operand:
         return {"error": "Expression cannot end with operator"}
 
     return None
+
+def validateExpression(tokens, clause):
+    tokens = stripOuterParens(tokens)
+
+    if not tokens:
+        return {"error": "Empty expression"}
+
+    # scalar subquery
+    if tokens[0] == "select":
+        return validateScalarSubquery(tokens)
+
+    # SELECT *
+    if len(tokens) == 1 and tokens[0] == "*":
+        return None
+
+    return validateArithmeticChain(tokens, clause)

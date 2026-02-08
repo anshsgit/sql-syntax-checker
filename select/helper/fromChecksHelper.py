@@ -17,18 +17,46 @@ def containsJoin(tokens):
 
 def extractFromList(tokens):
     """
-    Extracts tokens belonging to the FROM clause.
-    Stops at the next clause keyword if present.
+    Extract FROM clause tokens, stopping at OUTER clauses only.
     """
     if "from" not in tokens:
         return None
 
-    start = tokens.index("from") + 1
-    for clause in ("where", "group", "order", "having", "limit"):
-        if clause in tokens[start:]:
-            return tokens[start:tokens.index(clause)]
+    depth = 0
+    start = None
 
-    return tokens[start:]
+    for i, tok in enumerate(tokens):
+        if tok == "(":
+            depth += 1
+        elif tok == ")":
+            depth -= 1
+
+        # 🔥 detect OUTER FROM only
+        if depth == 0 and tok == "from":
+            start = i + 1
+            break
+
+    if start is None:
+        return None
+
+    end = len(tokens)
+    depth = 0
+
+    for i in range(start, len(tokens)):
+        tok = tokens[i]
+
+        if tok == "(":
+            depth += 1
+        elif tok == ")":
+            depth -= 1
+
+        # 🔥 stop only at OUTER clause boundaries
+        if depth == 0 and tok in {"where", "group", "having", "order", "limit"}:
+            end = i
+            break
+
+    return tokens[start:end]
+
 
 
 def splitRef(tokens):

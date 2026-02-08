@@ -1,9 +1,9 @@
 SQL PARSER TEST REPORT
 ======================================================================
-Total tests   : 241
-Passed        : 235
-Failed        : 6
-Success rate  : 97.51%
+Total tests   : 267
+Passed        : 259
+Failed        : 8
+Success rate  : 97.00%
 ======================================================================
 
 FAILED CASES:
@@ -34,6 +34,16 @@ FAILED CASES:
   Error    : None
 ----------------------------------------------------------------------
 [241] SELECT (((a))), SUM(b) FROM t GROUP BY (((a))) HAVING (((SUM(b)) + 1) > 10) ORDER BY (((a))) LIMIT 1
+  Expected : FAIL
+  Got      : PASS
+  Error    : None
+----------------------------------------------------------------------
+[247] SELECT a, (SELECT MIN(b) FROM u) FROM t
+  Expected : PASS
+  Got      : FAIL
+  Error    : {'error': 'GROUP BY is required when mixing aggregate and non-aggregate expressions'}
+----------------------------------------------------------------------
+[259] SELECT a FROM t WHERE a + (SELECT b FROM u) > 1
   Expected : FAIL
   Got      : PASS
   Error    : None

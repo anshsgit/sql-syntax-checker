@@ -853,6 +853,68 @@ TEST_CASES = [
  False
 ),
 
+    ("SELECT a FROM t WHERE a > (SELECT MAX(b) FROM u)", True),
+    ("SELECT a FROM t WHERE a = (SELECT MIN(b) FROM u)", True),
+    ("SELECT a FROM t WHERE a >= (SELECT COUNT(b) FROM u)", True),
+    ("SELECT a FROM t WHERE a < ((SELECT AVG(b) FROM u))", True),
+
+    # -------------------------------------------------
+    # 2. Scalar subqueries in SELECT list (VALID)
+    # -------------------------------------------------
+    ("SELECT (SELECT MAX(b) FROM u) FROM t", True),
+    ("SELECT a, (SELECT MIN(b) FROM u) FROM t", True),
+    ("SELECT (SELECT COUNT(*) FROM u) AS c FROM t", True),
+
+    # -------------------------------------------------
+    # 3. Scalar subqueries in HAVING (VALID)
+    # -------------------------------------------------
+    ("SELECT a, SUM(b) FROM t GROUP BY a HAVING SUM(b) > (SELECT AVG(c) FROM u)", True),
+    ("SELECT a FROM t GROUP BY a HAVING a > (SELECT MIN(x) FROM u)", True),
+
+    # -------------------------------------------------
+    # 4. IN subqueries (VALID)
+    # -------------------------------------------------
+    ("SELECT a FROM t WHERE a IN (SELECT x FROM u)", True),
+    ("SELECT a FROM t WHERE a NOT IN (SELECT x FROM u)", True),
+    ("SELECT a FROM t WHERE a IN ((SELECT x FROM u))", True),
+
+    # -------------------------------------------------
+    # 5. IN subquery violations (INVALID)
+    # -------------------------------------------------
+    ("SELECT a FROM t WHERE a IN ()", False),
+    ("SELECT a FROM t WHERE a IN SELECT x FROM u", False),
+    ("SELECT a FROM t WHERE a IN (SELECT x, y FROM u)", False),
+
+    # -------------------------------------------------
+    # 6. Invalid scalar subqueries (INVALID)
+    # -------------------------------------------------
+    ("SELECT a FROM t WHERE a > (SELECT x, y FROM u)", False),   # multi-column
+    ("SELECT a FROM t WHERE (SELECT MAX(b) FROM u) + 1 > 10", False),
+    ("SELECT a FROM t WHERE a + (SELECT b FROM u) > 1", False),
+
+    # -------------------------------------------------
+    # 7. Derived tables (FROM subqueries) – VALID
+    # -------------------------------------------------
+    ("SELECT x FROM (SELECT a AS x FROM t) sub", True),
+    ("SELECT sub.x FROM (SELECT a AS x FROM t) sub", True),
+    ("SELECT a FROM (SELECT a FROM t) t2", True),
+
+    # -------------------------------------------------
+    # 8. Derived table violations (INVALID)
+    # -------------------------------------------------
+    ("SELECT a FROM (SELECT a FROM t)", False),     # missing alias
+    ("SELECT a FROM (a FROM t) sub", False),        # invalid subquery
+
+    # -------------------------------------------------
+    # 9. Unsupported (correlated subqueries) – INVALID
+    # -------------------------------------------------
+    ("SELECT a FROM t WHERE a IN (SELECT x FROM u WHERE u.b = t.b)", False),
+    ("SELECT a FROM t WHERE a > (SELECT b FROM u WHERE u.c = t.c)", False),
+
+    # -------------------------------------------------
+    # 10. ORDER BY subqueries (INVALID)
+    # -------------------------------------------------
+    ("SELECT a FROM t ORDER BY (SELECT MAX(b) FROM u)", False),
 
 ]
 

@@ -6,17 +6,39 @@ from select.helper.utils import isColumnToken
 def extractHaving(tokens):
     """
     Extracts HAVING clause tokens.
-    Stops when ORDER or LIMIT clause begins.
+    Stops at OUTER ORDER BY or LIMIT.
     """
-    if "having" not in tokens:
+    depth = 0
+    start = None
+
+    for i, tok in enumerate(tokens):
+        if tok == "(":
+            depth += 1
+        elif tok == ")":
+            depth -= 1
+
+        # 🔥 outer HAVING only
+        if depth == 0 and tok == "having":
+            start = i + 1
+            break
+
+    if start is None:
         return None
 
-    start = tokens.index("having") + 1
     end = len(tokens)
+    depth = 0
 
-    for clause in ("order", "limit"):
-        if clause in tokens[start:]:
-            end = tokens.index(clause)
+    for i in range(start, len(tokens)):
+        tok = tokens[i]
+
+        if tok == "(":
+            depth += 1
+        elif tok == ")":
+            depth -= 1
+
+        # 🔥 stop only at OUTER clauses
+        if depth == 0 and tok in {"order", "limit"}:
+            end = i
             break
 
     return tokens[start:end]

@@ -135,34 +135,48 @@ def splitGroupByExpressions(tokens):
     exprs.append(tokens[start:])
     return exprs, None
 
+def isScalarSubquery(expr):
+    """
+    Returns True if the SELECT expression is a scalar subquery.
+    Example: (SELECT MIN(b) FROM t)
+    """
+    return (
+        expr
+        and expr[0] == "("
+        and len(expr) > 1
+        and expr[1] == "select"
+    )
+
 
 def validateGroupBy(selectExprs, groupExprs):
     """
-    Enforces strict SQL GROUP BY semantics:
-
-    Rules:
-    1. GROUP BY expressions cannot contain aggregate functions
-    2. Every non-aggregated SELECT expression must appear
-       *exactly* in the GROUP BY clause
+    Enforces strict SQL GROUP BY rules:
+    - GROUP BY cannot contain aggregates
+    - GROUP BY expressions must exactly match
+      non-aggregated SELECT expressions
     """
 
-    # Normalize non-aggregated SELECT expressions
+    # normalize expressions
     select_norm = []
     for expr in selectExprs:
+
+        # 🔥 ignore scalar subqueries for GROUP BY rules
+        if isScalarSubquery(expr):
+            continue
+
         if not containsAggregate(expr):
             select_norm.append(normalize(expr))
 
-    # Normalize GROUP BY expressions
     group_norm = [normalize(expr) for expr in groupExprs]
 
-    # ---- rule 1: no aggregates in GROUP BY ----
+    # 1️⃣ No aggregates in GROUP BY
     for expr in groupExprs:
         if containsAggregate(expr):
             return {
                 "error": "Aggregate functions are not allowed in GROUP BY"
             }
 
-    # ---- rule 2: exact expression match ----
+    # 2️⃣ Exact match required
     if set(select_norm) != set(group_norm):
         return {
             "error": "GROUP BY expressions must exactly match non-aggregated SELECT expressions",

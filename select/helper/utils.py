@@ -54,3 +54,19 @@ def extractLimit(tokens):
     end = len(tokens)
 
     return tokens[start:end]
+
+def isSubquery(tokens):
+    return bool(tokens) and tokens[0] == "select"
+
+
+def isScalarSubquery(expr):
+    """
+    Returns True if the SELECT expression is a scalar subquery.
+    Example: (SELECT MIN(b) FROM t)
+    """
+    return (
+        expr
+        and expr[0] == "("
+        and len(expr) > 1
+        and expr[1] == "select"
+    )
