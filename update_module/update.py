@@ -122,6 +122,11 @@ class UpdateCommand:
                 "suggestion": "Specify a valid table name after UPDATE."
             }
 
+        if update_idx + 2 < len(tokens) and tokens[update_idx+2] != "set":
+            return {
+                "error": "Invalid UPDATE target",
+                "suggestion": "UPDATE only supports one table name"
+            }
         # --------------------------------------------------
         # SET clause validation (multiple assignments)
         # --------------------------------------------------
