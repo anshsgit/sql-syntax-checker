@@ -115,17 +115,18 @@ class UpdateCommand:
                 "suggestion": "Correct order is UPDATE → SET → WHERE."
             }
 
-        # ---- table name ----
-        if update_idx + 1 >= len(tokens) or not self._is_identifier(tokens[update_idx + 1]):
+        table_idx = update_idx + 1
+        if table_idx >= len(tokens) or not self._is_identifier(tokens[table_idx]):
             return {
-                "error": "Invalid or missing table name.",
-                "suggestion": "Specify a valid table name after UPDATE."
+                "error": "Invalid or missing table name"
             }
 
-        if update_idx + 2 < len(tokens) and tokens[update_idx+2] != "set":
+        # NEXT TOKEN MUST BE SET (not another table)
+        next_idx = table_idx + 1
+        if next_idx >= len(tokens) or tokens[next_idx].lower() != "set":
             return {
-                "error": "Invalid UPDATE target",
-                "suggestion": "UPDATE only supports one table name"
+                "error": "UPDATE supports only one table",
+                "suggestion": "Use UPDATE <table> SET column = value"
             }
         # --------------------------------------------------
         # SET clause validation (multiple assignments)

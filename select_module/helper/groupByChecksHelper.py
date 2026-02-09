@@ -160,7 +160,7 @@ def validateGroupBy(selectExprs, groupExprs):
     select_norm = []
     for expr in selectExprs:
 
-        # 🔥 ignore scalar subqueries for GROUP BY rules
+        #  ignore scalar subqueries for GROUP BY rules
         if isScalarSubquery(expr):
             continue
 
@@ -169,14 +169,14 @@ def validateGroupBy(selectExprs, groupExprs):
 
     group_norm = [normalize(expr) for expr in groupExprs]
 
-    # 1️⃣ No aggregates in GROUP BY
+    # No aggregates in GROUP BY
     for expr in groupExprs:
         if containsAggregate(expr):
             return {
                 "error": "Aggregate functions are not allowed in GROUP BY"
             }
 
-    # 2️⃣ Exact match required
+    #  Exact match required
     if set(select_norm) != set(group_norm):
         return {
             "error": "GROUP BY expressions must exactly match non-aggregated SELECT expressions",

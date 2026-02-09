@@ -7,7 +7,7 @@ from create.CreateDDL import CreateDDL
 from truncate.TruncateDDL import TruncateDDL
 from drop.DropDDL import DropDDL
 from tcl.tcl_validator import TCLValidator
-
+from select_module.helper.utils import spell_check_tokens
 
 class QueryParser:
     """
@@ -26,7 +26,7 @@ class QueryParser:
         self.queryTypes = [
             'select', 'insert', 'update',
             'alter', 'drop', 'delete',
-            'truncate', 'create'
+            'truncate', 'create', 'commit', 'rollback', 'savepoint'
         ]
 
         # Comparison operators (used by tokenization / validation)
@@ -108,6 +108,16 @@ class QueryParser:
             return {
                 "error": "empty query"
             }
+        
+        # spell_errors = spell_check_tokens(tokens)
+        # print(spell_errors)
+        # suggestion = spell_errors[0]['suggestions'][0]
+
+        # if spell_errors:
+        #     return {
+        #         "error": f"Spelling mistake in SQL keyword. Do you mean {suggestion}",
+        #     }
+
 
         # Semicolon validation
         if ";" in tokens:
@@ -131,6 +141,7 @@ class QueryParser:
 
         # Determine query type
         queryType = tokens[0]
+        print(queryType)
 
         if queryType not in self.queryTypes:
             return {

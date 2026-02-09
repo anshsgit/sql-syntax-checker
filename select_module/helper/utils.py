@@ -1,3 +1,6 @@
+from spell_checker.utils import SpellChecker
+
+
 SQL_KEYWORDS = {
     "select", "from", "where", "group", "by",
     "having", "order", "limit", "as"
@@ -70,3 +73,31 @@ def isScalarSubquery(expr):
         and len(expr) > 1
         and expr[1] == "select"
     )
+
+def spell_check_tokens(tokens):
+    """
+    Spell-check SQL keywords and report exact token and position.
+    """
+    errors = []
+
+    for idx, token in enumerate(tokens):
+        # Skip symbols, numbers, operators
+        if not token.isalpha():
+            continue
+
+        # Valid keyword → OK
+        if token.upper() in SpellChecker.KEYWORDS:
+            continue
+
+        # Check for close matches
+        suggestions = SpellChecker.check(token)
+
+        if suggestions:
+            errors.append({
+                "token": token,
+                "position": idx,
+                "suggestions": suggestions
+            })
+
+    return errors
+

@@ -1,0 +1,229 @@
+====================================
+UPDATE - Vaishnavi
+====================================
+
+VALID
+UPDATE student
+SET marks = 100,
+    grade = 'A'
+WHERE id = 1;
+
+INVALID
+UPDATE student, employee
+SET bonus = 5000;
+
+
+====================================
+CREATE - Swati
+====================================
+
+VALID
+CREATE TABLE users (
+    id INT,
+    name VARCHAR(50)
+);
+
+CREATE INDEX idx_users_email
+ON users(email);
+
+CREATE DATABASE test;
+
+CREATE VIEW user_emails AS
+SELECT id, email
+FROM users;
+
+
+INVALID
+
+CREATE UNIQUE INDEX idx_employees_email
+ON employees();   -- column missing
+
+CREATE DATABASE @test;   -- invalid name
+
+CREATE VIEW user_emails AS
+id, email
+FROM users;   -- SELECT missing
+
+
+====================================
+DROP - Swati
+====================================
+
+VALID
+DROP TABLE users;
+DROP DATABASE test;
+DROP INDEX myindex;
+DROP VIEW myview;
+
+
+INVALID
+DROP TABLE users();          -- parentheses not allowed
+DROP TABLE users orders;     -- multiple tables not allowed
+DROP VIEW users IF EXISTS;   -- wrong order
+DROP DATABASE 2TEST;         -- invalid name
+DROP INDEX (myindex);        -- parentheses not allowed
+
+
+====================================
+TRUNCATE - Swati
+====================================
+
+VALID
+TRUNCATE TABLE users;
+
+TRUNCATE TABLE users RESTART IDENTITY;   -- PostgreSQL
+
+
+INVALID
+TRUNCATE TABLE users WHERE id > 10;   -- WHERE not allowed
+TRUNCATE TABLE users();               -- parentheses not allowed
+
+
+====================================
+TCL (TRANSACTION CONTROL LANGUAGE) - Varadraj
+====================================
+
+VALID
+COMMIT;
+ROLLBACK;
+SAVEPOINT sp1;
+ROLLBACK TO sp1;
+
+
+INVALID
+COMMIT students;      -- COMMIT cannot take table name
+
+
+====================================
+SELECT - abhicake
+====================================
+
+VALID
+SELECT id, name
+FROM employees;
+
+SELECT name
+FROM employees
+WHERE salary > 50000
+  AND age < 40;
+
+SELECT name
+FROM employees
+WHERE salary > (
+    SELECT AVG(salary)
+    FROM employees
+);
+
+SELECT department, SUM(salary)
+FROM employees
+GROUP BY department;
+
+SELECT department, SUM(salary)
+FROM employees
+GROUP BY department
+HAVING SUM(salary) > 200000;
+
+SELECT salary * 2
+FROM employees
+ORDER BY salary * 2;
+
+SELECT e.name, d.name
+FROM employees e
+JOIN departments d
+ON e.dept_id = d.id;
+
+SELECT d.name, SUM(e.salary)
+FROM employees e
+JOIN departments d
+ON e.dept_id = d.id
+WHERE e.salary > 30000
+GROUP BY d.name
+HAVING SUM(e.salary) > 100000
+ORDER BY d.name
+LIMIT 3;
+
+
+INVALID
+
+SELECT FROM employees;                 -- column missing
+SELECT name FROM employees WHERE salary >;   -- value missing
+SELECT name FROM employees
+WHERE salary > (
+    SELECT id, salary FROM employees
+);   -- subquery returns multiple columns
+
+SELECT department
+FROM employees
+HAVING department = 'HR';   -- HAVING without GROUP BY
+
+SELECT name
+FROM employees
+ORDER BY a b;               -- invalid syntax
+
+SELECT name
+FROM employees
+JOIN departments;           -- JOIN condition missing
+
+SELECT d.name, SUM(e.salary)
+FROM employees e
+GROUP BY d.name
+WHERE e.salary > 30000;     -- WHERE after GROUP BY
+
+
+====================================
+DELETE - vicash
+====================================
+
+VALID
+DELETE FROM users;
+
+DELETE FROM users
+WHERE age >= 18;
+
+DELETE FROM orders
+WHERE status = 'cancelled'
+  AND amount > 1000;
+
+DELETE FROM products
+WHERE price < 500;
+
+
+INVALID
+DELET FROM users;           -- typo
+DELETE users;               -- FROM missing
+DELETE users WHERE id = 1;  -- FROM missing
+DELETE FROM users WHERE;    -- condition missing
+DELETE FROM DELETE;         -- invalid table name
+
+
+====================================
+INSERT - ananya
+====================================
+
+VALID
+
+INSERT INTO users (id, name)
+VALUES (1, 'Alice');
+
+INSERT INTO users (id, name)
+VALUES (2, 'Bob'),
+       (3, 'Charlie');
+
+INSERT INTO orders (order_id, amount, status)
+VALUES (101, 2500, 'confirmed');
+
+
+INVALID
+INSERT users VALUES (1, 'Alice');          -- INTO missing
+INSERT INTO users VALUES ();               -- values missing
+INSERT INTO users (id, name)
+VALUES (1);                                -- column-value mismatch
+
+
+--ALTER --
+
+VALID
+Alter table users Add age int
+
+INVALID
+alter table users Add

@@ -124,9 +124,7 @@ class SelectParser:
             if not ref:
                 return {"error": "Empty table reference"}
 
-            # ==================================================
-            # 🔥 DERIVED TABLE: (SELECT ...) alias
-            # ==================================================
+            # derived table
             if ref[0] == "(":
 
                 # must have alias
@@ -161,9 +159,7 @@ class SelectParser:
                 self.from_tables[alias] = "<subquery>"
                 continue
 
-            # ==================================================
-            # 🔹 NORMAL TABLE
-            # ==================================================
+            # normal
             res = validateTableRef(ref)
             if "error" in res:
                 return res
@@ -219,16 +215,13 @@ class SelectParser:
             if err:
                 return err
 
-            # ✅ NEW: validate qualified column aliases
             unresolved = []
             collectQualifiedColumns(whereTokens, unresolved)
 
             for ref in unresolved:
                 if ref["alias"] not in self.from_tables:
                     return {
-                        "error": "Unknown table alias",
-                        "alias": ref["alias"],
-                        "position": ref["position"]
+                        "error": f"Unknown table alias {ref['alias']}",
                     }
 
         return None
